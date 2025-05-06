@@ -24,5 +24,9 @@ jobs:
     - name: 🏗 Build .exe with PyInstaller
       run: pyinstaller --onefile --windowed nr_launcher_gui.py
 
+    - name: 🚚 Copy EXE to workspace root
+      run: |
+        copy dist\\nr_launcher_gui.exe .\\nr_launcher_gui.exe
+
     - name: ✅ List built files
-      run: dir dist
+      run: dir
