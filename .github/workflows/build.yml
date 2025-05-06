@@ -1,4 +1,4 @@
-name: Build NR EXE
+name: Build & Release NR EXE
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
+    permissions:
+      contents: write  # required for GitHub release upload
 
     steps:
     - name: 📦 Checkout code
@@ -21,11 +24,22 @@ jobs:
     - name: ⚙️ Install PyInstaller
       run: pip install pyinstaller
 
-    - name: 🏗 Build .exe
+    - name: 🏗 Build EXE
       run: pyinstaller --onefile --windowed nr_launcher_gui.py
 
-    - name: 📦 Zip the EXE
-      run: powershell Compress-Archive -Path dist\\nr_launcher_gui.exe -DestinationPath launcher.zip
+    - name: 📋 Copy EXE to root
+      run: copy dist\\nr_launcher_gui.exe .\\nr_launcher_gui.exe
 
-    - name: 📂 List contents
-      run: dir
+    - name: 📦 Zip EXE
+      run: powershell Compress-Archive -Path .\\nr_launcher_gui.exe -DestinationPath launcher.zip
+
+    - name: 🚀 Upload to GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: NR Launcher Build
+        files: |
+ launcher.zip
+          nr_launcher_gui.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
