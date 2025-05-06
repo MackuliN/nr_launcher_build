@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-latest
 
     permissions:
-      contents: write  # required for GitHub release upload
+      contents: write
 
     steps:
     - name: 📦 Checkout code
@@ -38,8 +38,6 @@ jobs:
       with:
         tag_name: latest
         name: NR Launcher Build
-        files:
-          - launcher.zip
-          - nr_launcher_gui.exe
+        files: "launcher.zip\nnr_launcher_gui.exe"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
