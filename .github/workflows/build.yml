@@ -26,9 +26,3 @@ jobs:
 
     - name: ✅ List built files
       run: dir dist
-
-    - name: ⬆ Upload EXE
-      uses: actions/upload-artifact@v3
-      with:
-        name: nr_launcher_gui_exe
-        path: dist/nr_launcher_gui.exe
