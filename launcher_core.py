@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import os
+import sys
 
 BATCH_CONTENT = r"""@echo off
 setlocal enabledelayedexpansion
@@ -62,11 +63,21 @@ exit /b
 
 def scan_devices():
     try:
-        output = subprocess.check_output(["adb", "devices"], stderr=subprocess.STDOUT, text=True)
+        startupinfo = None
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+        output = subprocess.check_output(
+            ["adb", "devices"],
+            stderr=subprocess.STDOUT,
+            text=True,
+            startupinfo=startupinfo
+        )
         lines = output.strip().splitlines()[1:]  # skip header
         devices = [line.split()[0] for line in lines if "device" in line]
         return devices
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         return []
 
 def get_device_summary():
