@@ -1,66 +1,61 @@
 import tkinter as tk
-from tkinter import messagebox
-import launcher_core
-import threading
-import time
+from tkinter import ttk
+from launcher_core import (
+    get_device_state,
+    launch_batch_script,
+    attach_menu
+)
 
 class NRLauncherApp:
     def __init__(self, root):
         self.root = root
-        root.title("Nimble Recorder Launcher")
-        root.geometry("400x300")
-        root.resizable(False, False)
+        self.root.title("NR Launcher Monitor")
+        self.root.geometry("400x200")
+        attach_menu(self.root)
 
-        tk.Label(root, text="NR Launcher GUI", font=("Arial", 16, "bold")).pack(pady=10)
+        # Device labels
+        self.vx_label = tk.Label(root, text="VX Device: ---", font=("Segoe UI", 12), fg="black")
+        self.vx_label.pack(pady=10)
 
-        self.vx_label = tk.Label(root, text="VX: -", font=("Arial", 10))
-        self.vx_label.pack()
-        self.vs_label = tk.Label(root, text="VS: -", font=("Arial", 10))
-        self.vs_label.pack()
+        self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
+        self.vs_label.pack(pady=10)
 
-        btn_frame = tk.Frame(root)
-        btn_frame.pack(pady=20)
+        # Scan + Launch button
+        self.scan_button = ttk.Button(root, text="Scan + Launch NR", command=self.manual_scan)
+        self.scan_button.pack(pady=20)
 
-        tk.Button(btn_frame, text="🔍 Scan Devices", width=15, command=self.manual_scan).grid(row=0, column=0, padx=10)
-        tk.Button(btn_frame, text="🚀 Start Launcher", width=15, command=launcher_core.launch_batch_script).grid(row=1, column=0, padx=10, pady=10)
-        tk.Button(btn_frame, text="❌ Exit", width=15, command=self.root.quit).grid(row=2, column=0, padx=10)
+        # Begin background monitor
+        self.running = True
+        self.monitor_devices()
 
-        self.monitoring = True
-        self.current_devices = {"VX": [], "VS": []}
-        self.start_monitor_loop()
-        self.auto_start()
+        # Launch NR immediately on start
+        self.root.after(1000, self.auto_launch)
+
+    def update_labels(self, state):
+        vx_list = state["VX"]["devices"]
+        vs_list = state["VS"]["devices"]
+
+        vx_text = f"VX Device: {vx_list[0] if vx_list else '---'}"
+        vs_text = f"VS Device: {vs_list[0] if vs_list else '---'}"
+
+        self.vx_label.config(text=vx_text, fg=state["VX"]["color"])
+        self.vs_label.config(text=vs_text, fg=state["VS"]["color"])
+
+    def monitor_devices(self):
+        if not self.running:
+            return
+        state = get_device_state()
+        self.update_labels(state)
+        self.root.after(5000, self.monitor_devices)
 
     def manual_scan(self):
-        state = launcher_core.get_device_state()
-        self.current_devices = {
-            "VX": state["VX"]["devices"],
-            "VS": state["VS"]["devices"]
-        }
-        self.update_status_labels(state)
-        all_devices = state["VX"]["devices"] + state["VS"]["devices"]
-        messagebox.showinfo("Device Scan", f"Found {len(all_devices)} device(s):\n{chr(10).join(all_devices) if all_devices else 'None'}")
+        launch_batch_script()
 
-    def update_status_labels(self, state):
-        vx_text = f"VX: {', '.join(state['VX']['devices']) if state['VX']['devices'] else '-'}"
-        vs_text = f"VS: {', '.join(state['VS']['devices']) if state['VS']['devices'] else '-'}"
-        self.vx_label.config(text=vx_text, fg=state['VX']['color'])
-        self.vs_label.config(text=vs_text, fg=state['VS']['color'])
-
-    def start_monitor_loop(self):
-        def loop():
-            while self.monitoring:
-                state = launcher_core.get_device_state()
-                # If user hasn't manually rescanned, update colors based on disappearance
-                for k in ["VX", "VS"]:
-                    if self.current_devices[k]:
-                        if not state[k]["devices"]:
-                            state[k]["color"] = "red"
-                self.update_status_labels(state)
-                time.sleep(5)
-        threading.Thread(target=loop, daemon=True).start()
-
-    def auto_start(self):
-        threading.Thread(target=launcher_core.launch_batch_script, daemon=True).start()
+    def auto_launch(self):
+        # One-time check on startup
+        state = get_device_state()
+        if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
+            launch_batch_script()
 
 if __name__ == "__main__":
     root = tk.Tk()
