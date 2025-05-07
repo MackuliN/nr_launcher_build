@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    if: "!contains(github.event.head_commit.message, '[skip build]') && !contains(join(github.event.commits.*.modified), '.github/workflows/build.yml')"
     runs-on: windows-latest
 
     permissions:
@@ -47,18 +48,24 @@ jobs:
             if (['refactor', 'rework'].includes(w)) return '🔨';
             return '📦';
           };
+
           const commits = await github.rest.repos.listCommits({
             owner: context.repo.owner,
             repo: context.repo.repo,
             per_page: 5
           });
-          return commits.data
-            .map(c => {
-              const title = c.commit.message.split('\n')[0].trim();
-              const emoji = emojiPrefix(title);
-              return `- ${emoji} ${title} (${c.sha.slice(0, 7)})`;
-            })
-            .join('\n');
+
+          return commits.data.map(c => {
+            const lines = c.commit.message.split('\n');
+            const title = lines[0].trim();
+            const body = lines.slice(1).join('\n').trim();
+            const emoji = emojiPrefix(title);
+            let entry = `- ${emoji} ${title} (${c.sha.slice(0, 7)})`;
+            if (body) {
+              entry += `\n  ${body.replace(/\n/g, '\n  ')}`;
+            }
+            return entry;
+          }).join('\n');
 
     - name: 🚀 Upload to GitHub Release
       uses: softprops/action-gh-release@v1
