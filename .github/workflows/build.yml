@@ -33,17 +33,32 @@ jobs:
     - name: 📦 Zip EXE
       run: powershell Compress-Archive -Path .\\launcher_gui.exe -DestinationPath launcher.zip
 
-    - name: 🧾 Generate release changelog
+    - name: 🧾 Generate emoji changelog
       id: changelog
       uses: actions/github-script@v6
       with:
         script: |
+          const emojiPrefix = (msg) => {
+            const w = msg.trim().toLowerCase().split(' ')[0];
+            if (['add', 'create'].includes(w)) return '✨';
+            if (['fix', 'patch'].includes(w)) return '🐛';
+            if (['update', 'change', 'edit'].includes(w)) return '🔧';
+            if (['remove', 'delete'].includes(w)) return '🗑️';
+            if (['refactor', 'rework'].includes(w)) return '🔨';
+            return '📦';
+          };
           const commits = await github.rest.repos.listCommits({
             owner: context.repo.owner,
             repo: context.repo.repo,
             per_page: 5
           });
-          return commits.data.map(c => `- ${c.commit.message} (${c.sha.slice(0, 7)})`).join('\\n');
+          return commits.data
+            .map(c => {
+              const title = c.commit.message.split('\\n')[0].trim();
+              const emoji = emojiPrefix(title);
+              return `- ${emoji} ${title} (${c.sha.slice(0, 7)})`;
+            })
+            .join('\\n');
 
     - name: 🚀 Upload to GitHub Release
       uses: softprops/action-gh-release@v1
