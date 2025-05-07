@@ -54,11 +54,11 @@ jobs:
           });
           return commits.data
             .map(c => {
-              const title = c.commit.message.split('\\n')[0].trim();
+              const title = c.commit.message.split('\n')[0].trim();
               const emoji = emojiPrefix(title);
               return `- ${emoji} ${title} (${c.sha.slice(0, 7)})`;
             })
-            .join('\\n');
+            .join('\n');
 
     - name: 🚀 Upload to GitHub Release
       uses: softprops/action-gh-release@v1
