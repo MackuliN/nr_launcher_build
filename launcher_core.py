@@ -36,13 +36,13 @@ for /f "skip=1 tokens=1,2" %%A in ('adb devices') do (
         )
     )
 )
-if not !VX_COUNT! EQU %%EXPECTED_VX%% (
-    cscript //nologo "%POPUP_VBS%" "Expected %%EXPECTED_VX%% VX device(s), found !VX_COUNT!. Retry or Cancel?" "VX Device Error" 21
+if not !VX_COUNT! EQU !EXPECTED_VX! (
+    cscript //nologo "%POPUP_VBS%" "Expected !EXPECTED_VX! VX device(s), found !VX_COUNT!. Retry or Cancel?" "VX Device Error" 21
     if errorlevel 1 goto EXIT_CLEAN
     goto CHECK_DEVICES
 )
-if not !VS_COUNT! EQU %%EXPECTED_VS%% (
-    cscript //nologo "%POPUP_VBS%" "Expected %%EXPECTED_VS%% VS device(s), found !VS_COUNT!. Retry or Cancel?" "VS Device Error" 21
+if not !VS_COUNT! EQU !EXPECTED_VS! (
+    cscript //nologo "%POPUP_VBS%" "Expected !EXPECTED_VS! VS device(s), found !VS_COUNT!. Retry or Cancel?" "VS Device Error" 21
     if errorlevel 1 goto EXIT_CLEAN
     goto CHECK_DEVICES
 )
