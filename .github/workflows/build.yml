@@ -33,11 +33,24 @@ jobs:
     - name: 📦 Zip EXE
       run: powershell Compress-Archive -Path .\\launcher_gui.exe -DestinationPath launcher.zip
 
+    - name: 🧾 Generate release changelog
+      id: changelog
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const commits = await github.rest.repos.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            per_page: 5
+          });
+          return commits.data.map(c => `- ${c.commit.message} (${c.sha.slice(0, 7)})`).join('\\n');
+
     - name: 🚀 Upload to GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v1.0.${{ github.run_number }}
         name: NR Launcher Build ${{ github.run_number }}
+        body: ${{ steps.changelog.outputs.result }}
         files: "launcher.zip\nlauncher_gui.exe"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
