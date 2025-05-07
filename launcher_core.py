@@ -20,6 +20,24 @@ if not exist "%POPUP_VBS%" (
     exit /b
 )
 :CHECK_DEVICES
+set VX_COUNT=0
+set VS_COUNT=0
+set OTHER_COUNT=0
+for /f "skip=1 tokens=1,2" %%A in ('adb devices') do (
+    set "serial=%%A"
+    set "status=%%B"
+    if "!status!"=="device" (
+        if /i "!serial:~0,2!"=="VX" (
+            set /a VX_COUNT+=1
+        ) else if /i "!serial:~0,2!"=="VS" (
+            set /a VS_COUNT+=1
+        ) else (
+            set /a OTHER_COUNT+=1
+        )
+    )
+)
+if !VX_COUNT! EQU !EXPECTED_VX! if !VS_COUNT! EQU !EXPECTED_VS! goto SUCCESS
+:SHOW_PROMPT
 cscript //nologo "%POPUP_VBS%" "Scanning for devices. Make sure only one VX and one VS device are connected." "%POPUP_TITLE%" 64
 set VX_COUNT=0
 set VS_COUNT=0
@@ -40,16 +58,19 @@ for /f "skip=1 tokens=1,2" %%A in ('adb devices') do (
 if not !VX_COUNT! EQU !EXPECTED_VX! (
     cscript //nologo "%POPUP_VBS%" "Expected !EXPECTED_VX! VX device(s), found !VX_COUNT!. Retry or Cancel?" "VX Device Error" 21
     if errorlevel 1 goto EXIT_CLEAN
-    goto CHECK_DEVICES
+    goto SHOW_PROMPT
 )
 if not !VS_COUNT! EQU !EXPECTED_VS! (
     cscript //nologo "%POPUP_VBS%" "Expected !EXPECTED_VS! VS device(s), found !VS_COUNT!. Retry or Cancel?" "VS Device Error" 21
     if errorlevel 1 goto EXIT_CLEAN
-    goto CHECK_DEVICES
+    goto SHOW_PROMPT
 )
-cscript //nologo "%POPUP_VBS%" "Devices detected successfully. Proceeding with commands." "Success" 64
-start /WAIT adb -s device:eureka shell am broadcast -a com.oculus.vrpowermanager.prox_close
-start /WAIT adb -s device:eureka shell setprop persist.oculus.guardian_disable 1
+if !OTHER_COUNT! GTR 0 (
+    cscript //nologo "%POPUP_VBS%" "Unexpected devices detected (!OTHER_COUNT!). Retry or Cancel?" "Extra Devices Warning" 21
+    if errorlevel 1 goto EXIT_CLEAN
+    goto SHOW_PROMPT
+)
+:SUCCESS
 call "C:\Users\rift\S2\NR\startNimbleRecorderUnified.bat"
 :EXIT_CLEAN
 if exist "%POPUP_VBS%" del "%POPUP_VBS%" >nul 2>&1
@@ -69,7 +90,7 @@ def scan_devices():
             text=True,
             startupinfo=startupinfo
         )
-        lines = output.strip().splitlines()[1:]  # skip header
+        lines = output.strip().splitlines()[1:]
         devices = [line.split()[0] for line in lines if "device" in line]
         return devices
     except subprocess.CalledProcessError:
@@ -105,3 +126,14 @@ def launch_batch_script():
         f.write(BATCH_CONTENT)
         batch_path = f.name
     subprocess.call(["cmd.exe", "/c", batch_path])
+
+def attach_menu(root):
+    import tkinter as tk
+    from tkinter import messagebox
+
+    menu_bar = tk.Menu(root)
+    function_menu = tk.Menu(menu_bar, tearoff=0)
+    function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
+    function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", "NR Launcher v2.0\nBuilt by Grimoire"))
+    menu_bar.add_cascade(label="Function", menu=function_menu)
+    root.config(menu=menu_bar)
