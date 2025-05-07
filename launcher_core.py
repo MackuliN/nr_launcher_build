@@ -47,11 +47,6 @@ if not !VS_COUNT! EQU !EXPECTED_VS! (
     if errorlevel 1 goto EXIT_CLEAN
     goto CHECK_DEVICES
 )
-if !OTHER_COUNT! GTR 0 (
-    cscript //nologo "%POPUP_VBS%" "Unexpected devices detected (!OTHER_COUNT!). Retry or Cancel?" "Extra Devices Warning" 21
-    if errorlevel 1 goto EXIT_CLEAN
-    goto CHECK_DEVICES
-)
 cscript //nologo "%POPUP_VBS%" "Devices detected successfully. Proceeding with commands." "Success" 64
 start /WAIT adb -s device:eureka shell am broadcast -a com.oculus.vrpowermanager.prox_close
 start /WAIT adb -s device:eureka shell setprop persist.oculus.guardian_disable 1
@@ -84,17 +79,26 @@ def get_device_summary():
     devices = scan_devices()
     vx = [d for d in devices if d.startswith("VX")]
     vs = [d for d in devices if d.startswith("VS")]
-    other = [d for d in devices if not d.startswith("VX") and not d.startswith("VS")]
     return {
         "VX": vx,
         "VS": vs,
-        "Other": other,
         "All": devices
     }
 
-def device_status_text():
+def get_device_state():
     summary = get_device_summary()
-    return f"VX: {len(summary['VX'])}, VS: {len(summary['VS'])}, Other: {len(summary['Other'])}"
+    state = {
+        "VX": {"devices": summary["VX"], "color": "black"},
+        "VS": {"devices": summary["VS"], "color": "black"}
+    }
+    if summary["VX"] and summary["VS"]:
+        state["VX"]["color"] = "green"
+        state["VS"]["color"] = "green"
+    elif not summary["VX"]:
+        state["VX"]["color"] = "red"
+    elif not summary["VS"]:
+        state["VS"]["color"] = "red"
+    return state
 
 def launch_batch_script():
     with tempfile.NamedTemporaryFile(delete=False, suffix=".bat", mode="w", encoding="utf-8") as f:
