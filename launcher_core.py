@@ -2,6 +2,8 @@ import subprocess
 import tempfile
 import os
 import sys
+import psutil
+from datetime import datetime
 
 BATCH_CONTENT = r"""@echo off
 setlocal enabledelayedexpansion
@@ -123,11 +125,27 @@ def get_device_state():
         state["VS"]["color"] = "red"
     return state
 
-def launch_batch_script():
+def launch_batch_script_with_tracking():
     with tempfile.NamedTemporaryFile(delete=False, suffix=".bat", mode="w", encoding="utf-8") as f:
         f.write(BATCH_CONTENT)
         batch_path = f.name
-    subprocess.call(["cmd.exe", "/c", batch_path])
+
+    proc = subprocess.Popen(["cmd.exe", "/c", batch_path])
+    parent = psutil.Process(proc.pid)
+
+    # Delay to allow child procs to spawn
+    import time
+    time.sleep(3)
+
+    children = parent.children(recursive=True)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with open("nr_process_log.txt", "a", encoding="utf-8") as log:
+        log.write(f"\n[{timestamp}] NR Launcher spawned processes:\n")
+        for c in children:
+            try:
+                log.write(f"- {c.name()} (PID {c.pid})\n")
+            except:
+                continue
 
 def attach_menu(root, label="Menu"):
     import tkinter as tk
