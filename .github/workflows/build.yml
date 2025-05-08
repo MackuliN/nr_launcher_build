@@ -23,11 +23,11 @@ jobs:
       with:
         python-version: 3.10
 
-    - name: ⚙️ Install PyInstaller
-      run: pip install pyinstaller
+    - name: 📥 Install requirements
+      run: pip install psutil pyinstaller
 
     - name: 🏗 Build EXE from launcher_gui.py
-      run: pyinstaller --onefile --windowed launcher_gui.py
+      run: pyinstaller --onefile --windowed --hidden-import=psutil launcher_gui.py
 
     - name: 📋 Copy EXE to root
       run: copy dist\\launcher_gui.exe .\\launcher_gui.exe
