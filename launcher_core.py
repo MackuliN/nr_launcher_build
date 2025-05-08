@@ -129,7 +129,7 @@ def launch_batch_script():
         batch_path = f.name
     subprocess.call(["cmd.exe", "/c", batch_path])
 
-def attach_menu(root):
+def attach_menu(root, label="Menu"):
     import tkinter as tk
     from tkinter import messagebox
 
@@ -137,5 +137,5 @@ def attach_menu(root):
     function_menu = tk.Menu(menu_bar, tearoff=0)
     function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
     function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", "NR Launcher v2.0\nBuilt by A. Mackulin"))
-    menu_bar.add_cascade(label="Function", menu=function_menu)
+    menu_bar.add_cascade(label=label, menu=function_menu)
     root.config(menu=menu_bar)
