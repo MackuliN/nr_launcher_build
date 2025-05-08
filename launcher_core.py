@@ -71,6 +71,8 @@ if !OTHER_COUNT! GTR 0 (
     goto SHOW_PROMPT
 )
 :SUCCESS
+start /WAIT adb -s device:eureka shell am broadcast -a com.oculus.vrpowermanager.prox_close
+start /WAIT adb -s device:eureka shell setprop persist.oculus.guardian_disable 1
 call "C:\Users\rift\S2\NR\startNimbleRecorderUnified.bat"
 :EXIT_CLEAN
 if exist "%POPUP_VBS%" del "%POPUP_VBS%" >nul 2>&1
@@ -134,6 +136,6 @@ def attach_menu(root):
     menu_bar = tk.Menu(root)
     function_menu = tk.Menu(menu_bar, tearoff=0)
     function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
-    function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", "NR Launcher v2.0\nBuilt by Grimoire"))
+    function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", "NR Launcher v2.0\nBuilt by A. Mackulin"))
     menu_bar.add_cascade(label="Function", menu=function_menu)
     root.config(menu=menu_bar)
