@@ -1,11 +1,27 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
+import ctypes
+import sys
+import os
+
 from launcher_core import (
     get_device_state,
-    launch_batch_script,
+    launch_batch_script_with_tracking,
     attach_menu
 )
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def elevate_if_needed():
+    if not is_admin():
+        script = os.path.abspath(sys.argv[0])
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script}"', None, 1)
+        sys.exit(0)
 
 class NRLauncherApp:
     def __init__(self, root):
@@ -49,7 +65,7 @@ class NRLauncherApp:
     def auto_launch(self):
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
-            launch_batch_script()
+            launch_batch_script_with_tracking()
 
     def guard_before_launch(self):
         if self.is_process_running("NimbleRecorderREST.exe"):
@@ -61,7 +77,7 @@ class NRLauncherApp:
                 self.kill_process("msedge.exe")
                 self.kill_most_recent_cmd()
                 self.kill_process("NimbleRecorderREST.exe")
-        launch_batch_script()
+        launch_batch_script_with_tracking()
 
     def is_process_running(self, name):
         try:
@@ -89,6 +105,7 @@ class NRLauncherApp:
             pass
 
 if __name__ == "__main__":
+    elevate_if_needed()
     root = tk.Tk()
     app = NRLauncherApp(root)
     root.mainloop()
