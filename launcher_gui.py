@@ -24,12 +24,19 @@ def elevate_if_needed():
         ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script}"', None, 1)
         sys.exit(0)
 
+def get_launcher_version():
+    try:
+        with open("version.txt", "r") as f:
+            return f.read().strip()
+    except:
+        return "v2.0"
+
 class NRLauncherApp:
     def __init__(self, root):
         self.root = root
         self.root.title("NR Launcher Monitor")
         self.root.geometry("400x200")
-        attach_menu(self.root, label="Menu")
+        self.attach_menu()
 
         self.vx_label = tk.Label(root, text="VX Device: ---", font=("Segoe UI", 12), fg="black")
         self.vx_label.pack(pady=10)
@@ -47,6 +54,20 @@ class NRLauncherApp:
         self.monitor_devices()
         self.root.after(3000, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
+
+    def attach_menu(self):
+        menu_bar = tk.Menu(self.root)
+        function_menu = tk.Menu(menu_bar, tearoff=0)
+        function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
+        function_menu.add_command(
+            label="App Info",
+            command=lambda: messagebox.showinfo(
+                "App Info",
+                f"NR Launcher {get_launcher_version()}\nBuilt by A. Mackulin"
+            )
+        )
+        menu_bar.add_cascade(label="Menu", menu=function_menu)
+        self.root.config(menu=menu_bar)
 
     def update_labels(self, state):
         vx_list = state["VX"]["devices"]
