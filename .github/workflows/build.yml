@@ -31,6 +31,7 @@ jobs:
 
     - name: 🏷 Set version label
       id: versioning
+      shell: bash
       run: echo "version=v$(printf '%03d' ${{ github.run_number }})" >> $GITHUB_OUTPUT
 
     - name: 📋 Rename and copy versioned EXE
@@ -51,7 +52,7 @@ jobs:
         COMMITS_ESCAPED="${COMMITS//'%'/'%25'}"
         COMMITS_ESCAPED="${COMMITS_ESCAPED//$'\n'/'%0A'}"
         COMMITS_ESCAPED="${COMMITS_ESCAPED//$'\r'/'%0D'}"
-        echo "::set-output name=log::$COMMITS_ESCAPED"
+        echo "log=$COMMITS_ESCAPED" >> $GITHUB_OUTPUT
 
     - name: 🚀 Upload to GitHub Release
       uses: softprops/action-gh-release@v1
