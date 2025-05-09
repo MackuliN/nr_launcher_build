@@ -29,11 +29,15 @@ jobs:
     - name: 🏗 Build EXE from launcher_gui.py
       run: pyinstaller --onefile --windowed --hidden-import=psutil launcher_gui.py
 
-    - name: 📋 Copy EXE to root
-      run: copy dist\\launcher_gui.exe .\\launcher_gui.exe
+    - name: 🏷 Set version label
+      id: versioning
+      run: echo "VERSION=v$(printf '%03d' ${{ github.run_number }})" >> $GITHUB_ENV
 
-    - name: 📦 Zip EXE
-      run: powershell Compress-Archive -Path .\\launcher_gui.exe -DestinationPath launcher.zip
+    - name: 📋 Rename and copy versioned EXE
+      run: copy dist\\launcher_gui.exe launcher_gui_${{ env.VERSION }}.exe
+
+    - name: 📦 Create versioned ZIP
+      run: powershell Compress-Archive -Path launcher_gui_${{ env.VERSION }}.exe -DestinationPath launcher_gui_${{ env.VERSION }}.zip
 
     - name: 🧾 Generate clean changelog
       id: changelog
@@ -56,7 +60,7 @@ jobs:
         name: NR Launcher Build ${{ github.run_number }}
         body: ${{ steps.changelog.outputs.log }}
         files: |
-          launcher.zip
-          launcher_gui.exe
+          launcher_gui_${{ env.VERSION }}.zip
+          launcher_gui_${{ env.VERSION }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
