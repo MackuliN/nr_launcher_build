@@ -133,7 +133,6 @@ def launch_batch_script_with_tracking():
     proc = subprocess.Popen(["cmd.exe", "/c", batch_path])
     parent = psutil.Process(proc.pid)
 
-    # Delay to allow child procs to spawn
     import time
     time.sleep(3)
 
@@ -146,6 +145,35 @@ def launch_batch_script_with_tracking():
                 log.write(f"- {c.name()} (PID {c.pid})\n")
             except:
                 continue
+
+def check_adb_streaming():
+    found_vx, found_vs = False, False
+    for proc in psutil.process_iter(['name', 'cmdline']):
+        if proc.info['name'] and 'adb.exe' in proc.info['name'].lower():
+            cmd = ' '.join(proc.info['cmdline']).lower()
+            if 'nakasendo-streaming-server' in cmd:
+                if 'vx' in cmd:
+                    found_vx = True
+                elif 'vs' in cmd:
+                    found_vs = True
+    return found_vx and found_vs
+
+def check_rest_backend():
+    for proc in psutil.process_iter(['name']):
+        if proc.info['name'] and 'NimbleRecorderREST.exe' in proc.info['name']:
+            return True
+    return False
+
+def is_nr_ready(timeout=10):
+    import time
+    start = time.time()
+    while time.time() - start < timeout:
+        if check_adb_streaming() and check_rest_backend():
+            time.sleep(3)
+            if check_adb_streaming() and check_rest_backend():
+                return True
+        time.sleep(1)
+    return False
 
 def attach_menu(root, label="Menu"):
     import tkinter as tk
