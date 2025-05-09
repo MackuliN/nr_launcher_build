@@ -162,11 +162,13 @@ class NRLauncherApp:
             return
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
-            launch_batch_script_with_tracking()
+            launch_batch_script_with_tracking(skip_check=False)
 
     def guard_before_launch(self):
-        if self.settings.get("skip_device_check", False):
-            launch_batch_script_with_tracking()
+        skip = self.settings.get("skip_device_check", False)
+
+        if skip:
+            launch_batch_script_with_tracking(skip_check=True)
             return
 
         state = get_device_state()
@@ -184,7 +186,7 @@ class NRLauncherApp:
                 self.kill_most_recent_cmd()
                 self.kill_process("NimbleRecorderREST.exe")
 
-        launch_batch_script_with_tracking()
+        launch_batch_script_with_tracking(skip_check=False)
 
     def update_nr_status(self):
         if is_nr_ready(timeout=3):
