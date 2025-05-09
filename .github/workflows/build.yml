@@ -31,13 +31,13 @@ jobs:
 
     - name: 🏷 Set version label
       id: versioning
-      run: echo "VERSION=v$(printf '%03d' ${{ github.run_number }})" >> $GITHUB_ENV
+      run: echo "version=v$(printf '%03d' ${{ github.run_number }})" >> $GITHUB_OUTPUT
 
     - name: 📋 Rename and copy versioned EXE
-      run: copy dist\\launcher_gui.exe launcher_gui_${{ env.VERSION }}.exe
+      run: copy dist\\launcher_gui.exe launcher_gui_${{ steps.versioning.outputs.version }}.exe
 
     - name: 📦 Create versioned ZIP
-      run: powershell Compress-Archive -Path launcher_gui_${{ env.VERSION }}.exe -DestinationPath launcher_gui_${{ env.VERSION }}.zip
+      run: powershell Compress-Archive -Path launcher_gui_${{ steps.versioning.outputs.version }}.exe -DestinationPath launcher_gui_${{ steps.versioning.outputs.version }}.zip
 
     - name: 🧾 Generate clean changelog
       id: changelog
@@ -60,7 +60,7 @@ jobs:
         name: NR Launcher Build ${{ github.run_number }}
         body: ${{ steps.changelog.outputs.log }}
         files: |
-          launcher_gui_${{ env.VERSION }}.zip
-          launcher_gui_${{ env.VERSION }}.exe
+          launcher_gui_${{ steps.versioning.outputs.version }}.zip
+          launcher_gui_${{ steps.versioning.outputs.version }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
