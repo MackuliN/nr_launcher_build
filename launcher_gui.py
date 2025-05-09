@@ -26,7 +26,8 @@ def elevate_if_needed():
 
 def get_launcher_version():
     try:
-        with open("version.txt", "r") as f:
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(base_path, "version.txt"), "r") as f:
             return f.read().strip()
     except:
         return "v2.0"
