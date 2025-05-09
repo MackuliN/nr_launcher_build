@@ -84,23 +84,29 @@ class NRLauncherApp:
     def __init__(self, root):
         self.root = root
         self.root.title("NR Launcher Monitor")
-        self.root.geometry("400x200")
+        self.root.geometry("400x230")
 
         self.settings = load_settings()
 
         self.attach_menu()
 
         self.vx_label = tk.Label(root, text="VX Device: ---", font=("Segoe UI", 12), fg="black")
-        self.vx_label.pack(pady=10)
+        self.vx_label.pack(pady=5)
 
         self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
-        self.vs_label.pack(pady=10)
+        self.vs_label.pack(pady=5)
 
-        self.scan_button = ttk.Button(root, text="Scan + Launch NR", command=self.guard_before_launch)
-        self.scan_button.pack(pady=20)
+        self.button_frame = tk.Frame(root)
+        self.button_frame.pack(pady=10)
+
+        self.scan_button = ttk.Button(self.button_frame, text="Scan Devices", command=self.manual_scan)
+        self.scan_button.pack(side=tk.LEFT, padx=10)
+
+        self.launch_button = ttk.Button(self.button_frame, text="Launch NR", command=self.guard_before_launch)
+        self.launch_button.pack(side=tk.LEFT, padx=10)
 
         self.status_label = tk.Label(root, text="NR Status: Not Ready", font=("Segoe UI", 10), fg="red")
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
         self.running = True
         self.monitor_devices()
@@ -127,6 +133,10 @@ class NRLauncherApp:
     def reload_settings(self):
         self.settings = load_settings()
 
+    def manual_scan(self):
+        state = get_device_state()
+        self.update_labels(state)
+
     def update_labels(self, state):
         vx_list = state["VX"]["devices"]
         vs_list = state["VS"]["devices"]
@@ -144,16 +154,21 @@ class NRLauncherApp:
         if not self.running:
             return
         self.update_labels(get_device_state())
-        self.root.after(self.settings.get("scan_interval", 5) * 1000, self.monitor_devices)
+        interval = self.settings.get("scan_interval", 5)
+        self.root.after(interval * 1000, self.monitor_devices)
 
     def auto_launch(self):
-        if self.settings.get("skip_device_check"):
+        if self.settings.get("skip_device_check", False):
             return
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking()
 
     def guard_before_launch(self):
+        if self.settings.get("skip_device_check", False):
+            launch_batch_script_with_tracking()
+            return
+
         if self.is_process_running("NimbleRecorderREST.exe"):
             response = messagebox.askokcancel(
                 "NR Already Running",
@@ -163,6 +178,7 @@ class NRLauncherApp:
                 self.kill_process("msedge.exe")
                 self.kill_most_recent_cmd()
                 self.kill_process("NimbleRecorderREST.exe")
+
         launch_batch_script_with_tracking()
 
     def update_nr_status(self):
