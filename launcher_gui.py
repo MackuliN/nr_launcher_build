@@ -169,6 +169,11 @@ class NRLauncherApp:
             launch_batch_script_with_tracking()
             return
 
+        state = get_device_state()
+        if not (state["VX"]["devices"] and state["VS"]["devices"]):
+            messagebox.showerror("Device Check Failed", "Required devices not connected. Cannot launch NR.")
+            return
+
         if self.is_process_running("NimbleRecorderREST.exe"):
             response = messagebox.askokcancel(
                 "NR Already Running",
