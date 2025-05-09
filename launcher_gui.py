@@ -8,6 +8,7 @@ import os
 from launcher_core import (
     get_device_state,
     launch_batch_script_with_tracking,
+    is_nr_ready,
     attach_menu
 )
 
@@ -39,8 +40,12 @@ class NRLauncherApp:
         self.scan_button = ttk.Button(root, text="Scan + Launch NR", command=self.guard_before_launch)
         self.scan_button.pack(pady=20)
 
+        self.status_label = tk.Label(root, text="NR Status: Not Ready", font=("Segoe UI", 10), fg="red")
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.running = True
         self.monitor_devices()
+        self.root.after(3000, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
 
     def update_labels(self, state):
@@ -78,6 +83,13 @@ class NRLauncherApp:
                 self.kill_most_recent_cmd()
                 self.kill_process("NimbleRecorderREST.exe")
         launch_batch_script_with_tracking()
+
+    def update_nr_status(self):
+        if is_nr_ready(timeout=3):
+            self.status_label.config(text="NR Status: Ready", fg="green")
+        else:
+            self.status_label.config(text="NR Status: Not Ready", fg="red")
+        self.root.after(5000, self.update_nr_status)
 
     def is_process_running(self, name):
         try:
