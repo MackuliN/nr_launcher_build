@@ -38,10 +38,8 @@ jobs:
       shell: bash
       run: echo "v2.0b$(printf '%03d' ${{ github.run_number }})" > version.txt
 
-    - name: 📋 Copy versioned EXE + version.txt
-      run: |
-        copy dist\\launcher_gui.exe launcher_gui_${{ steps.versioning.outputs.version }}.exe
-        copy version.txt version.txt
+    - name: 📋 Copy versioned EXE
+      run: copy dist\\launcher_gui.exe launcher_gui_${{ steps.versioning.outputs.version }}.exe
 
     - name: 📦 Create versioned ZIP
       run: powershell Compress-Archive -Path launcher_gui_${{ steps.versioning.outputs.version }}.exe,version.txt -DestinationPath launcher_gui_${{ steps.versioning.outputs.version }}.zip
