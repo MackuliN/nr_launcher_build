@@ -4,6 +4,7 @@ import os
 import sys
 import psutil
 from datetime import datetime
+import time
 
 BATCH_CONTENT = r"""@echo off
 setlocal enabledelayedexpansion
@@ -125,21 +126,24 @@ def get_device_state():
         state["VS"]["color"] = "red"
     return state
 
-def launch_batch_script_with_tracking():
+def launch_batch_script_with_tracking(skip_check=False):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".bat", mode="w", encoding="utf-8") as f:
         f.write(BATCH_CONTENT)
         batch_path = f.name
 
-    proc = subprocess.Popen(["cmd.exe", "/c", batch_path])
+    cmd = ["cmd.exe", "/c", batch_path]
+    if skip_check:
+        cmd.append("--skip-check")
+
+    proc = subprocess.Popen(cmd)
     parent = psutil.Process(proc.pid)
 
-    import time
     time.sleep(3)
 
     children = parent.children(recursive=True)
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     with open("nr_process_log.txt", "a", encoding="utf-8") as log:
-        log.write(f"\n[{timestamp}] NR Launcher spawned processes:\n")
+        log.write(f"\n[{timestamp}] NR Launcher spawned processes (skip_check={skip_check}):\n")
         for c in children:
             try:
                 log.write(f"- {c.name()} (PID {c.pid})\n")
@@ -165,7 +169,6 @@ def check_rest_backend():
     return False
 
 def is_nr_ready(timeout=10):
-    import time
     start = time.time()
     while time.time() - start < timeout:
         if check_adb_streaming() and check_rest_backend():
@@ -174,14 +177,3 @@ def is_nr_ready(timeout=10):
                 return True
         time.sleep(1)
     return False
-
-def attach_menu(root, label="Menu"):
-    import tkinter as tk
-    from tkinter import messagebox
-
-    menu_bar = tk.Menu(root)
-    function_menu = tk.Menu(menu_bar, tearoff=0)
-    function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
-    function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", "NR Launcher v2.0\nBuilt by A. Mackulin"))
-    menu_bar.add_cascade(label=label, menu=function_menu)
-    root.config(menu=menu_bar)
