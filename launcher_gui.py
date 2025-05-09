@@ -4,13 +4,33 @@ import subprocess
 import ctypes
 import sys
 import os
+import json
 
 from launcher_core import (
     get_device_state,
     launch_batch_script_with_tracking,
-    is_nr_ready,
-    attach_menu
+    is_nr_ready
 )
+
+SETTINGS_FILE = "settings.json"
+
+DEFAULT_SETTINGS = {
+    "scan_interval": 5,
+    "skip_device_check": False
+}
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return DEFAULT_SETTINGS.copy()
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
 
 def is_admin():
     try:
@@ -32,11 +52,42 @@ def get_launcher_version():
     except:
         return "v2.0"
 
+class ConfigDialog(tk.Toplevel):
+    def __init__(self, master, settings, on_save):
+        super().__init__(master)
+        self.title("Configuration")
+        self.resizable(False, False)
+
+        self.settings = settings
+        self.on_save = on_save
+
+        tk.Label(self, text="Scan Interval (seconds):").grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        self.interval_var = tk.IntVar(value=settings["scan_interval"])
+        self.interval_spin = tk.Spinbox(self, from_=1, to=60, textvariable=self.interval_var, width=5)
+        self.interval_spin.grid(row=0, column=1, padx=10, pady=10)
+
+        self.skip_var = tk.BooleanVar(value=settings["skip_device_check"])
+        self.skip_check = tk.Checkbutton(self, text="Skip Device Check", variable=self.skip_var)
+        self.skip_check.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
+
+        save_btn = ttk.Button(self, text="Save", command=self.save)
+        save_btn.grid(row=2, column=0, columnspan=2, pady=10)
+
+    def save(self):
+        self.settings["scan_interval"] = self.interval_var.get()
+        self.settings["skip_device_check"] = self.skip_var.get()
+        save_settings(self.settings)
+        self.on_save()
+        self.destroy()
+
 class NRLauncherApp:
     def __init__(self, root):
         self.root = root
         self.root.title("NR Launcher Monitor")
         self.root.geometry("400x200")
+
+        self.settings = load_settings()
+
         self.attach_menu()
 
         self.vx_label = tk.Label(root, text="VX Device: ---", font=("Segoe UI", 12), fg="black")
@@ -59,7 +110,7 @@ class NRLauncherApp:
     def attach_menu(self):
         menu_bar = tk.Menu(self.root)
         function_menu = tk.Menu(menu_bar, tearoff=0)
-        function_menu.add_command(label="Config Settings", command=lambda: messagebox.showinfo("Config", "Settings dialog coming soon."))
+        function_menu.add_command(label="Config Settings", command=self.open_config)
         function_menu.add_command(
             label="App Info",
             command=lambda: messagebox.showinfo(
@@ -69,6 +120,12 @@ class NRLauncherApp:
         )
         menu_bar.add_cascade(label="Menu", menu=function_menu)
         self.root.config(menu=menu_bar)
+
+    def open_config(self):
+        ConfigDialog(self.root, self.settings, self.reload_settings)
+
+    def reload_settings(self):
+        self.settings = load_settings()
 
     def update_labels(self, state):
         vx_list = state["VX"]["devices"]
@@ -87,9 +144,11 @@ class NRLauncherApp:
         if not self.running:
             return
         self.update_labels(get_device_state())
-        self.root.after(5000, self.monitor_devices)
+        self.root.after(self.settings.get("scan_interval", 5) * 1000, self.monitor_devices)
 
     def auto_launch(self):
+        if self.settings.get("skip_device_check"):
+            return
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking()
