@@ -16,7 +16,7 @@ SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
     "scan_interval": 5,
-    "skip_device_check": False
+    "auto_launch_disable": False
 }
 
 def load_settings():
@@ -66,16 +66,16 @@ class ConfigDialog(tk.Toplevel):
         self.interval_spin = tk.Spinbox(self, from_=1, to=60, textvariable=self.interval_var, width=5)
         self.interval_spin.grid(row=0, column=1, padx=10, pady=10)
 
-        self.skip_var = tk.BooleanVar(value=settings["skip_device_check"])
-        self.skip_check = tk.Checkbutton(self, text="Skip Device Check", variable=self.skip_var)
-        self.skip_check.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
+        self.auto_launch_var = tk.BooleanVar(value=settings.get("auto_launch_disable", False))
+        self.auto_launch_check = tk.Checkbutton(self, text="Disable Auto-Launch", variable=self.auto_launch_var)
+        self.auto_launch_check.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
 
         save_btn = ttk.Button(self, text="Save", command=self.save)
         save_btn.grid(row=2, column=0, columnspan=2, pady=10)
 
     def save(self):
         self.settings["scan_interval"] = self.interval_var.get()
-        self.settings["skip_device_check"] = self.skip_var.get()
+        self.settings["auto_launch_disable"] = self.auto_launch_var.get()
         save_settings(self.settings)
         self.on_save()
         self.destroy()
@@ -158,33 +158,24 @@ class NRLauncherApp:
         self.root.after(interval * 1000, self.monitor_devices)
 
     def auto_launch(self):
-        if self.settings.get("skip_device_check", False):
+        if self.settings.get("auto_launch_disable", False):
             return
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking(skip_check=False)
 
     def guard_before_launch(self):
-        skip = self.settings.get("skip_device_check", False)
-
-        if skip:
-            launch_batch_script_with_tracking(skip_check=True)
+        if self.is_process_running("NimbleRecorderREST.exe"):
+            messagebox.showinfo(
+                "NR Already Running",
+                "NimbleRecorder is already running.\nPlease close all instances before launching again."
+            )
             return
 
         state = get_device_state()
         if not (state["VX"]["devices"] and state["VS"]["devices"]):
             messagebox.showerror("Device Check Failed", "Required devices not connected. Cannot launch NR.")
             return
-
-        if self.is_process_running("NimbleRecorderREST.exe"):
-            response = messagebox.askokcancel(
-                "NR Already Running",
-                "NimbleRecorder is already running.\nClose all instances of NR, Microsoft Edge, and the most recent Command Prompt?"
-            )
-            if response:
-                self.kill_process("msedge.exe")
-                self.kill_most_recent_cmd()
-                self.kill_process("NimbleRecorderREST.exe")
 
         launch_batch_script_with_tracking(skip_check=False)
 
