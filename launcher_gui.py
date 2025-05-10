@@ -160,6 +160,14 @@ class NRLauncherApp:
     def auto_launch(self):
         if self.settings.get("auto_launch_disable", False):
             return
+
+        if self.is_process_running("NimbleRecorderREST.exe"):
+            messagebox.showinfo(
+                "NR Already Running",
+                "NimbleRecorder is already running.\nPlease close all instances before launching again."
+            )
+            return
+
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking(skip_check=False)
