@@ -4,7 +4,6 @@ import os
 import sys
 import psutil
 from datetime import datetime
-import time
 
 BATCH_CONTENT = r"""@echo off
 setlocal enabledelayedexpansion
@@ -131,49 +130,51 @@ def launch_batch_script_with_tracking(skip_check=False):
         f.write(BATCH_CONTENT)
         batch_path = f.name
 
-    cmd = ["cmd.exe", "/c", batch_path]
     if skip_check:
-        cmd.append("--skip-check")
+        BATCH_SKIP_WRAPPER = f"""@echo off
+call "{batch_path}"
+"""
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".bat", mode="w", encoding="utf-8") as wrapper:
+            wrapper.write(BATCH_SKIP_WRAPPER)
+            batch_path = wrapper.name
 
-    proc = subprocess.Popen(cmd)
+    proc = subprocess.Popen(["cmd.exe", "/c", batch_path])
     parent = psutil.Process(proc.pid)
 
+    import time
     time.sleep(3)
 
     children = parent.children(recursive=True)
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     with open("nr_process_log.txt", "a", encoding="utf-8") as log:
-        log.write(f"\n[{timestamp}] NR Launcher spawned processes (skip_check={skip_check}):\n")
+        log.write(f"\n[{timestamp}] NR Launcher spawned processes:\n")
         for c in children:
             try:
                 log.write(f"- {c.name()} (PID {c.pid})\n")
             except:
                 continue
 
-def check_adb_streaming():
-    found_vx, found_vs = False, False
-    for proc in psutil.process_iter(['name', 'cmdline']):
-        if proc.info['name'] and 'adb.exe' in proc.info['name'].lower():
-            cmd = ' '.join(proc.info['cmdline']).lower()
-            if 'nakasendo-streaming-server' in cmd:
-                if 'vx' in cmd:
-                    found_vx = True
-                elif 'vs' in cmd:
-                    found_vs = True
-    return found_vx and found_vs
+def is_nr_ready(timeout=30):
+    import time
+    import glob
 
-def check_rest_backend():
-    for proc in psutil.process_iter(['name']):
-        if proc.info['name'] and 'NimbleRecorderREST.exe' in proc.info['name']:
-            return True
-    return False
+    log_dir = r"C:\NR\Project\logs"
+    try:
+        log_files = sorted(glob.glob(os.path.join(log_dir, "NimbleRecorderREST_exe_*.log")), key=os.path.getmtime)
+        if not log_files:
+            return False
 
-def is_nr_ready(timeout=10):
-    start = time.time()
-    while time.time() - start < timeout:
-        if check_adb_streaming() and check_rest_backend():
-            time.sleep(3)
-            if check_adb_streaming() and check_rest_backend():
-                return True
-        time.sleep(1)
+        latest_log = log_files[-1]
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with open(latest_log, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    if any("Main loop running..." in line for line in lines):
+                        return True
+            except Exception:
+                pass
+            time.sleep(1)
+    except:
+        return False
     return False
