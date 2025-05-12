@@ -9,9 +9,10 @@ import threading
 
 from launcher_core import (
     get_device_state,
-    launch_batch_script_with_tracking,
-    is_nr_ready
+    launch_batch_script_with_tracking
 )
+
+import nr_monitor
 
 SETTINGS_FILE = "settings.json"
 
@@ -100,7 +101,7 @@ class NRLauncherApp:
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
 
-        self.scan_button = ttk.Button(self.button_frame, text="Scan Devices", command=self.threaded_manual_scan)
+        self.scan_button = ttk.Button(self.button_frame, text="Scan Devices", command=self.manual_scan)
         self.scan_button.pack(side=tk.LEFT, padx=10)
 
         self.launch_button = ttk.Button(self.button_frame, text="Launch NR", command=self.guard_before_launch)
@@ -110,8 +111,8 @@ class NRLauncherApp:
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
         self.running = True
-        self.schedule_monitor()
-        self.root.after(3000, self.update_nr_status)
+        self.monitor_devices()
+        self.update_nr_status_loop()
         self.root.after(1000, self.auto_launch)
 
     def attach_menu(self):
@@ -134,12 +135,9 @@ class NRLauncherApp:
     def reload_settings(self):
         self.settings = load_settings()
 
-    def threaded_manual_scan(self):
-        threading.Thread(target=self.manual_scan, daemon=True).start()
-
     def manual_scan(self):
         state = get_device_state()
-        self.root.after(0, lambda: self.update_labels(state))
+        self.update_labels(state)
 
     def update_labels(self, state):
         vx_list = state["VX"]["devices"]
@@ -154,13 +152,14 @@ class NRLauncherApp:
             fg=state["VS"]["color"]
         )
 
-    def schedule_monitor(self):
-        if self.running:
-            threading.Thread(target=self.monitor_devices, daemon=True).start()
-            interval = self.settings.get("scan_interval", 5)
-            self.root.after(interval * 1000, self.schedule_monitor)
-
     def monitor_devices(self):
+        if not self.running:
+            return
+        threading.Thread(target=self._async_scan).start()
+        interval = self.settings.get("scan_interval", 5)
+        self.root.after(interval * 1000, self.monitor_devices)
+
+    def _async_scan(self):
         state = get_device_state()
         self.root.after(0, lambda: self.update_labels(state))
 
@@ -168,7 +167,7 @@ class NRLauncherApp:
         if self.settings.get("auto_launch_disable", False):
             return
 
-        if self.is_process_running("NimbleRecorderREST.exe"):
+        if nr_monitor.is_nr_running():
             messagebox.showinfo(
                 "NR Already Running",
                 "NimbleRecorder is already running.\nPlease close all instances before launching again."
@@ -180,7 +179,7 @@ class NRLauncherApp:
             launch_batch_script_with_tracking(skip_check=False)
 
     def guard_before_launch(self):
-        if self.is_process_running("NimbleRecorderREST.exe"):
+        if nr_monitor.is_nr_running():
             messagebox.showinfo(
                 "NR Already Running",
                 "NimbleRecorder is already running.\nPlease close all instances before launching again."
@@ -194,37 +193,12 @@ class NRLauncherApp:
 
         launch_batch_script_with_tracking(skip_check=False)
 
-    def update_nr_status(self):
-        if is_nr_ready(timeout=3):
+    def update_nr_status_loop(self):
+        if nr_monitor.is_nr_running():
             self.status_label.config(text="NR Status: Ready", fg="green")
         else:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
-        self.root.after(5000, self.update_nr_status)
-
-    def is_process_running(self, name):
-        try:
-            output = subprocess.check_output("tasklist", shell=True).decode()
-            return name.lower() in output.lower()
-        except:
-            return False
-
-    def kill_process(self, name):
-        try:
-            subprocess.call(f"taskkill /F /IM {name}", shell=True)
-        except:
-            pass
-
-    def kill_most_recent_cmd(self):
-        try:
-            output = subprocess.check_output("wmic process where (name='cmd.exe') get ProcessId,CreationDate /format:csv", shell=True).decode()
-            lines = [line for line in output.strip().splitlines() if line and "CreationDate" not in line]
-            if not lines:
-                return
-            lines.sort(key=lambda l: l.split(",")[1])
-            pid = lines[-1].split(",")[2]
-            subprocess.call(f"taskkill /F /PID {pid}", shell=True)
-        except:
-            pass
+        self.root.after(5000, self.update_nr_status_loop)
 
 if __name__ == "__main__":
     elevate_if_needed()
