@@ -1,16 +1,20 @@
-name: Build and Package NR Launcher
+name: Build NR Launcher
 
 on:
   push:
     paths:
-      - '.github/workflows/build.yml'
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -18,31 +22,32 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install requirements
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller psutil
 
-      - name: Read version
+      - name: Get version number
         id: get_version
         run: |
-          $version = Get-Content version.txt | Out-String
-          $version = $version.Trim()
-          echo "VERSION=$version" | Out-File -Append $env:GITHUB_ENV
-          echo "::set-output name=version::$version"
+          $version = Get-Content version.txt
+          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build executable
         run: |
-          pyinstaller launcher_gui.py --onefile --clean --name launcher_gui --add-data "version.txt;." --add-data "settings.json;." --add-data "nr_monitor.py;."
-
-      - name: Rename built exe
-        run: |
-          $exe_name = "launcher_gui_v${{ env.VERSION }}.exe"
-          Rename-Item -Path "dist\launcher_gui.exe" -NewName $exe_name
-          Copy-Item "dist\$exe_name" "$exe_name"
+          pyinstaller launcher_gui.py --onefile --name launcher_gui_v${{ env.VERSION }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: NR_Launcher_v${{ env.VERSION }}
-          path: launcher_gui_v${{ env.VERSION }}.exe
+          path: dist/launcher_gui_v${{ env.VERSION }}.exe
+
+      - name: Create GitHub Release and Upload Binary
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: NR Launcher v${{ env.VERSION }}
+          files: dist/launcher_gui_v${{ env.VERSION }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
