@@ -5,6 +5,7 @@ import ctypes
 import sys
 import os
 import json
+import threading
 
 from launcher_core import (
     get_device_state,
@@ -99,7 +100,7 @@ class NRLauncherApp:
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
 
-        self.scan_button = ttk.Button(self.button_frame, text="Scan Devices", command=self.manual_scan)
+        self.scan_button = ttk.Button(self.button_frame, text="Scan Devices", command=self.threaded_manual_scan)
         self.scan_button.pack(side=tk.LEFT, padx=10)
 
         self.launch_button = ttk.Button(self.button_frame, text="Launch NR", command=self.guard_before_launch)
@@ -109,7 +110,7 @@ class NRLauncherApp:
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
         self.running = True
-        self.monitor_devices()
+        self.schedule_monitor()
         self.root.after(3000, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
 
@@ -133,9 +134,12 @@ class NRLauncherApp:
     def reload_settings(self):
         self.settings = load_settings()
 
+    def threaded_manual_scan(self):
+        threading.Thread(target=self.manual_scan, daemon=True).start()
+
     def manual_scan(self):
         state = get_device_state()
-        self.update_labels(state)
+        self.root.after(0, lambda: self.update_labels(state))
 
     def update_labels(self, state):
         vx_list = state["VX"]["devices"]
@@ -150,12 +154,15 @@ class NRLauncherApp:
             fg=state["VS"]["color"]
         )
 
+    def schedule_monitor(self):
+        if self.running:
+            threading.Thread(target=self.monitor_devices, daemon=True).start()
+            interval = self.settings.get("scan_interval", 5)
+            self.root.after(interval * 1000, self.schedule_monitor)
+
     def monitor_devices(self):
-        if not self.running:
-            return
-        self.update_labels(get_device_state())
-        interval = self.settings.get("scan_interval", 5)
-        self.root.after(interval * 1000, self.monitor_devices)
+        state = get_device_state()
+        self.root.after(0, lambda: self.update_labels(state))
 
     def auto_launch(self):
         if self.settings.get("auto_launch_disable", False):
