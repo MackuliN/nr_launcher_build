@@ -42,7 +42,7 @@ jobs:
           Copy-Item "dist\$exe_name" "$exe_name"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: NR_Launcher_v${{ env.VERSION }}
           path: launcher_gui_v${{ env.VERSION }}.exe
