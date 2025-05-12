@@ -1,71 +1,48 @@
-name: Build & Release NR EXE
+name: Build and Package NR Launcher
 
 on:
   push:
     paths:
-      - .github/workflows/build.yml
-  workflow_dispatch:
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
-    if: "!contains(github.event.head_commit.message, '[skip build]')"
     runs-on: windows-latest
 
-    permissions:
-      contents: write
-
     steps:
-    - name: 📦 Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: 🐍 Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.10
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: 📥 Install requirements
-      run: pip install psutil pyinstaller
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller psutil
 
-    - name: 🏗 Build EXE from launcher_gui.py
-      run: pyinstaller --onefile --windowed --hidden-import=psutil launcher_gui.py
+      - name: Read version
+        id: get_version
+        run: |
+          $version = Get-Content version.txt | Out-String
+          $version = $version.Trim()
+          echo "VERSION=$version" | Out-File -Append $env:GITHUB_ENV
+          echo "::set-output name=version::$version"
 
-    - name: 🏷 Set version label
-      id: versioning
-      shell: bash
-      run: echo "version=v$(printf '%03d' ${{ github.run_number }})" >> $GITHUB_OUTPUT
+      - name: Build executable
+        run: |
+          pyinstaller launcher_gui.py --onefile --clean --name launcher_gui --add-data "version.txt;." --add-data "settings.json;." --add-data "nr_monitor.py;."
 
-    - name: ✏️ Write version.txt
-      shell: bash
-      run: echo "v2.0b$(printf '%03d' ${{ github.run_number }})" > version.txt
+      - name: Rename built exe
+        run: |
+          $exe_name = "launcher_gui_v${{ env.VERSION }}.exe"
+          Rename-Item -Path "dist\launcher_gui.exe" -NewName $exe_name
+          Copy-Item "dist\$exe_name" "$exe_name"
 
-    - name: 📋 Copy versioned EXE
-      run: copy dist\\launcher_gui.exe launcher_gui_${{ steps.versioning.outputs.version }}.exe
-
-    - name: 📦 Create versioned ZIP
-      run: powershell Compress-Archive -Path launcher_gui_${{ steps.versioning.outputs.version }}.exe,version.txt -DestinationPath launcher_gui_${{ steps.versioning.outputs.version }}.zip
-
-    - name: 🧾 Generate clean changelog
-      id: changelog
-      shell: bash
-      run: |
-        git fetch --tags
-        LAST_TAG=$(git tag --sort=-creatordate | head -n1)
-        echo "Last tag: $LAST_TAG"
-
-        COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:'- %s (%h)')
-        COMMITS_ESCAPED="${COMMITS//'%'/'%25'}"
-        COMMITS_ESCAPED="${COMMITS_ESCAPED//$'\n'/'%0A'}"
-        COMMITS_ESCAPED="${COMMITS_ESCAPED//$'\r'/'%0D'}"
-        echo "log=$COMMITS_ESCAPED" >> $GITHUB_OUTPUT
-
-    - name: 🚀 Upload to GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: NR Launcher Build ${{ github.run_number }}
-        body: ${{ steps.changelog.outputs.log }}
-        files: |
-          launcher_gui_${{ steps.versioning.outputs.version }}.zip
-          launcher_gui_${{ steps.versioning.outputs.version }}.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: NR_Launcher_v${{ env.VERSION }}
+          path: launcher_gui_v${{ env.VERSION }}.exe
