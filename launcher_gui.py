@@ -135,7 +135,8 @@ class NRLauncherApp:
             "This will launch NR directly without device or process checks.\nContinue?"
         )
         if result:
-            bat_path = os.path.join(os.getcwd(), "startNimbleRecorderUnified.bat")
+            home = os.path.expandvars("%HOMEDRIVE%%HOMEPATH%")
+            bat_path = os.path.join(home, "S2", "NR", "startNimbleRecorderUnified.bat")
             try:
                 subprocess.Popen(["cmd", "/c", bat_path], shell=True)
             except Exception as e:
