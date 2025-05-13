@@ -5,7 +5,6 @@ import ctypes
 import sys
 import os
 import json
-import threading
 
 from launcher_core import (
     get_device_state,
@@ -18,7 +17,8 @@ SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
     "scan_interval": 5,
-    "auto_launch_disable": False
+    "auto_launch_disable": False,
+    "disable_edge_launch": False
 }
 
 def load_settings():
@@ -72,12 +72,17 @@ class ConfigDialog(tk.Toplevel):
         self.auto_launch_check = tk.Checkbutton(self, text="Disable Auto-Launch", variable=self.auto_launch_var)
         self.auto_launch_check.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
 
+        self.edge_launch_var = tk.BooleanVar(value=settings.get("disable_edge_launch", False))
+        self.edge_launch_check = tk.Checkbutton(self, text="Disable Edge Auto-Launch", variable=self.edge_launch_var)
+        self.edge_launch_check.grid(row=2, column=0, columnspan=2, padx=10, pady=5)
+
         save_btn = ttk.Button(self, text="Save", command=self.save)
-        save_btn.grid(row=2, column=0, columnspan=2, pady=10)
+        save_btn.grid(row=3, column=0, columnspan=2, pady=10)
 
     def save(self):
         self.settings["scan_interval"] = self.interval_var.get()
         self.settings["auto_launch_disable"] = self.auto_launch_var.get()
+        self.settings["disable_edge_launch"] = self.edge_launch_var.get()
         save_settings(self.settings)
         self.on_save()
         self.destroy()
@@ -86,9 +91,10 @@ class NRLauncherApp:
     def __init__(self, root):
         self.root = root
         self.root.title("NR Launcher Monitor")
-        self.root.geometry("400x260")
+        self.root.geometry("400x230")
 
         self.settings = load_settings()
+        self.edge_launched = False
 
         self.attach_menu()
 
@@ -97,9 +103,6 @@ class NRLauncherApp:
 
         self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
         self.vs_label.pack(pady=5)
-
-        self.battery_label = tk.Label(root, text="Eureka Battery: ---", font=("Segoe UI", 10), fg="blue")
-        self.battery_label.pack(pady=2)
 
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
@@ -110,23 +113,21 @@ class NRLauncherApp:
         self.launch_button = ttk.Button(self.button_frame, text="Launch NR", command=self.guard_before_launch)
         self.launch_button.pack(side=tk.LEFT, padx=10)
 
+        self.monitor_button = ttk.Button(self.button_frame, text="Monitor", command=lambda: None)
+        self.monitor_button.pack(side=tk.LEFT, padx=10)
+
         self.status_label = tk.Label(root, text="NR Status: Not Ready", font=("Segoe UI", 10), fg="red")
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
         self.running = True
         self.monitor_devices()
-        self.root.after(3000, self.update_nr_status)
+        self.root.after(1500, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
-        self.root.after(10000, self.update_battery_status)
 
     def attach_menu(self):
         menu_bar = tk.Menu(self.root)
         function_menu = tk.Menu(menu_bar, tearoff=0)
         function_menu.add_command(label="Config Settings", command=self.open_config)
-        function_menu.add_command(
-            label="Force Launch NR (skip checks)",
-            command=self.force_launch
-        )
         function_menu.add_command(
             label="App Info",
             command=lambda: messagebox.showinfo(
@@ -197,45 +198,19 @@ class NRLauncherApp:
 
         launch_batch_script_with_tracking(skip_check=False)
 
-    def force_launch(self):
-        response = messagebox.askokcancel(
-            "Force Launch NR",
-            "Are you sure you want to launch NimbleRecorder directly without device checks?"
-        )
-        if response:
-            user_home = os.environ.get("USERPROFILE", "")
-            nr_path = os.path.join(user_home, "S2", "NR", "startNimbleRecorderUnified.bat")
-            if os.path.exists(nr_path):
-                subprocess.Popen(['cmd', '/c', nr_path], shell=True)
-            else:
-                messagebox.showerror("Error", "Batch file not found.")
-
     def update_nr_status(self):
         if is_nr_running():
             self.status_label.config(text="NR Status: Ready", fg="green")
+            if not self.edge_launched and not self.settings.get("disable_edge_launch", False):
+                self.edge_launched = True
+                try:
+                    subprocess.Popen(["start", "msedge"], shell=True)
+                except Exception as e:
+                    messagebox.showerror("Edge Launch Failed", str(e))
         else:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
+            self.edge_launched = False
         self.root.after(1500, self.update_nr_status)
-
-    def update_battery_status(self):
-        def poll():
-            try:
-                result = subprocess.check_output(
-                    ["adb", "-s", "device:eureka", "shell", "dumpsys", "battery"],
-                    stderr=subprocess.DEVNULL,
-                    stdin=subprocess.DEVNULL,
-                    startupinfo=subprocess.STARTUPINFO(),
-                    creationflags=subprocess.CREATE_NO_WINDOW
-                ).decode()
-                for line in result.splitlines():
-                    if "level:" in line:
-                        level = line.strip().split(":")[1].strip()
-                        self.battery_label.config(text=f"Eureka Battery: {level}%", fg="blue")
-                        return
-            except:
-                self.battery_label.config(text="Eureka Battery: ---", fg="blue")
-        threading.Thread(target=poll, daemon=True).start()
-        self.root.after(10000, self.update_battery_status)
 
 if __name__ == "__main__":
     elevate_if_needed()
