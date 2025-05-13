@@ -103,7 +103,7 @@ class ConfigDialog(tk.Toplevel):
 class NRLauncherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("NR Monitor")
+        self.root.title("NR Launcher Monitor")
         self.root.geometry("400x260")
 
         self.settings = load_settings()
@@ -116,8 +116,8 @@ class NRLauncherApp:
         self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
         self.vs_label.pack(pady=5)
 
-        self.battery_label = tk.Label(root, text="Battery: ---", font=("Segoe UI", 10), fg="blue")
-        self.battery_label.pack(pady=2)
+        self.battery_label = tk.Label(root, text="Battery (Eureka): ---", font=("Segoe UI", 10))
+        self.battery_label.pack(pady=5)
 
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
@@ -127,9 +127,6 @@ class NRLauncherApp:
 
         self.launch_button = ttk.Button(self.button_frame, text="Launch NR", command=self.guard_before_launch)
         self.launch_button.pack(side=tk.LEFT, padx=10)
-
-        self.monitor_button = ttk.Button(root, text="Monitor", command=self.do_nothing)
-        self.monitor_button.pack(pady=5)
 
         self.status_label = tk.Label(root, text="NR Status: Not Ready", font=("Segoe UI", 10), fg="red")
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
@@ -141,32 +138,23 @@ class NRLauncherApp:
         self.root.after(10000, self.update_battery_status)
         self.root.after(1000, self.auto_launch)
 
-    def do_nothing(self):
-        pass
-
     def attach_menu(self):
         menu_bar = tk.Menu(self.root)
         function_menu = tk.Menu(menu_bar, tearoff=0)
         function_menu.add_command(label="Config Settings", command=self.open_config)
-        function_menu.add_command(
-            label="Force Launch NR",
-            command=self.force_launch_nr
-        )
-        function_menu.add_command(
-            label="App Info",
-            command=lambda: messagebox.showinfo(
-                "App Info",
-                f"NR Launcher {get_launcher_version()}\nBuilt by A. Mackulin"
-            )
-        )
+        function_menu.add_command(label="Force Launch NR", command=self.force_launch_nr)
+        function_menu.add_command(label="App Info", command=lambda: messagebox.showinfo("App Info", f"NR Launcher {get_launcher_version()}\nBuilt by A. Mackulin"))
         menu_bar.add_cascade(label="Menu", menu=function_menu)
         self.root.config(menu=menu_bar)
 
+    def open_config(self):
+        ConfigDialog(self.root, self.settings, self.reload_settings)
+
+    def reload_settings(self):
+        self.settings = load_settings()
+
     def force_launch_nr(self):
-        response = messagebox.askokcancel(
-            "Force Launch",
-            "Are you sure you want to launch NR directly without checking for connected devices?"
-        )
+        response = messagebox.askokcancel("Force Launch", "Are you sure you want to launch NR directly without checking for connected devices?")
         if not response:
             return
         user_home = os.path.expanduser("~")
@@ -176,12 +164,6 @@ class NRLauncherApp:
         else:
             messagebox.showerror("File Not Found", f"Could not locate:\n{bat_path}")
 
-    def open_config(self):
-        ConfigDialog(self.root, self.settings, self.reload_settings)
-
-    def reload_settings(self):
-        self.settings = load_settings()
-
     def manual_scan(self):
         state = get_device_state()
         self.update_labels(state)
@@ -190,14 +172,8 @@ class NRLauncherApp:
         vx_list = state["VX"]["devices"]
         vs_list = state["VS"]["devices"]
 
-        self.vx_label.config(
-            text=f"VX Device: {vx_list[0] if vx_list else '---'}",
-            fg=state["VX"]["color"]
-        )
-        self.vs_label.config(
-            text=f"VS Device: {vs_list[0] if vs_list else '---'}",
-            fg=state["VS"]["color"]
-        )
+        self.vx_label.config(text=f"VX Device: {vx_list[0] if vx_list else '---'}", fg=state["VX"]["color"])
+        self.vs_label.config(text=f"VS Device: {vs_list[0] if vs_list else '---'}", fg=state["VS"]["color"])
 
     def monitor_devices(self):
         if not self.running:
@@ -217,27 +193,20 @@ class NRLauncherApp:
     def auto_launch(self):
         if self.settings.get("auto_launch_disable", False):
             return
-
         if is_nr_running():
             return
-
         state = get_device_state()
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking(skip_check=False)
 
     def guard_before_launch(self):
         if is_nr_running():
-            messagebox.showinfo(
-                "NR Already Running",
-                "NimbleRecorder is already running.\nPlease close all instances before launching again."
-            )
+            messagebox.showinfo("NR Already Running", "NimbleRecorder is already running.\nPlease close all instances before launching again.")
             return
-
         state = get_device_state()
         if not (state["VX"]["devices"] and state["VS"]["devices"]):
             messagebox.showerror("Device Check Failed", "Required devices not connected. Cannot launch NR.")
             return
-
         launch_batch_script_with_tracking(skip_check=False)
 
     def update_nr_status(self):
