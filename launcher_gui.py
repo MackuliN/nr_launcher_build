@@ -8,7 +8,7 @@ import json
 
 from launcher_core import (
     get_device_state,
-    launch_batch_script_with_tracking
+    launch_batch_script_with_tracking,
 )
 
 from nr_monitor import is_nr_running
