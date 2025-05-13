@@ -111,17 +111,14 @@ class NRLauncherApp:
 
         self.running = True
         self.monitor_devices()
-        self.root.after(3000, self.auto_launch)
-        self.root.after(3000, self.update_nr_status)
+        self.root.after(1500, self.update_nr_status)
+        self.root.after(1000, self.auto_launch)
 
     def attach_menu(self):
         menu_bar = tk.Menu(self.root)
         function_menu = tk.Menu(menu_bar, tearoff=0)
         function_menu.add_command(label="Config Settings", command=self.open_config)
-        function_menu.add_command(
-            label="Force Launch NR (Skip Checks)",
-            command=self.force_launch_nr
-        )
+        function_menu.add_command(label="Force Launch NR", command=self.force_launch)
         function_menu.add_command(
             label="App Info",
             command=lambda: messagebox.showinfo(
@@ -131,6 +128,18 @@ class NRLauncherApp:
         )
         menu_bar.add_cascade(label="Menu", menu=function_menu)
         self.root.config(menu=menu_bar)
+
+    def force_launch(self):
+        result = messagebox.askokcancel(
+            "Force Launch",
+            "This will launch NR directly without device or process checks.\nContinue?"
+        )
+        if result:
+            bat_path = os.path.join(os.getcwd(), "startNimbleRecorderUnified.bat")
+            try:
+                subprocess.Popen(["cmd", "/c", bat_path], shell=True)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to launch batch file: {e}")
 
     def open_config(self):
         ConfigDialog(self.root, self.settings, self.reload_settings)
@@ -192,23 +201,12 @@ class NRLauncherApp:
 
         launch_batch_script_with_tracking(skip_check=False)
 
-    def force_launch_nr(self):
-        result = messagebox.askokcancel(
-            "Force Launch NR",
-            "Are you sure you want to launch without checking for devices?"
-        )
-        if result:
-            try:
-                subprocess.Popen(["start", "cmd", "/c", "startNimbleRecorderUnified.bat"], shell=True)
-            except Exception as e:
-                messagebox.showerror("Launch Error", f"Failed to launch NR directly.\n\n{str(e)}")
-
     def update_nr_status(self):
         if is_nr_running():
             self.status_label.config(text="NR Status: Ready", fg="green")
         else:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
-        self.root.after(3000, self.update_nr_status)
+        self.root.after(1500, self.update_nr_status)
 
 if __name__ == "__main__":
     elevate_if_needed()
