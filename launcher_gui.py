@@ -5,14 +5,13 @@ import ctypes
 import sys
 import os
 import json
-import threading
 
 from launcher_core import (
     get_device_state,
     launch_batch_script_with_tracking
 )
 
-import nr_monitor
+from nr_monitor import is_nr_running
 
 SETTINGS_FILE = "settings.json"
 
@@ -112,7 +111,7 @@ class NRLauncherApp:
 
         self.running = True
         self.monitor_devices()
-        self.update_nr_status_loop()
+        self.root.after(3000, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
 
     def attach_menu(self):
@@ -155,19 +154,15 @@ class NRLauncherApp:
     def monitor_devices(self):
         if not self.running:
             return
-        threading.Thread(target=self._async_scan).start()
+        self.update_labels(get_device_state())
         interval = self.settings.get("scan_interval", 5)
         self.root.after(interval * 1000, self.monitor_devices)
-
-    def _async_scan(self):
-        state = get_device_state()
-        self.root.after(0, lambda: self.update_labels(state))
 
     def auto_launch(self):
         if self.settings.get("auto_launch_disable", False):
             return
 
-        if nr_monitor.is_nr_running():
+        if is_nr_running():
             messagebox.showinfo(
                 "NR Already Running",
                 "NimbleRecorder is already running.\nPlease close all instances before launching again."
@@ -179,7 +174,7 @@ class NRLauncherApp:
             launch_batch_script_with_tracking(skip_check=False)
 
     def guard_before_launch(self):
-        if nr_monitor.is_nr_running():
+        if is_nr_running():
             messagebox.showinfo(
                 "NR Already Running",
                 "NimbleRecorder is already running.\nPlease close all instances before launching again."
@@ -193,12 +188,12 @@ class NRLauncherApp:
 
         launch_batch_script_with_tracking(skip_check=False)
 
-    def update_nr_status_loop(self):
-        if nr_monitor.is_nr_running():
+    def update_nr_status(self):
+        if is_nr_running():
             self.status_label.config(text="NR Status: Ready", fg="green")
         else:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
-        self.root.after(5000, self.update_nr_status_loop)
+        self.root.after(5000, self.update_nr_status)
 
 if __name__ == "__main__":
     elevate_if_needed()
