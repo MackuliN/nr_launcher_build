@@ -103,7 +103,7 @@ class ConfigDialog(tk.Toplevel):
 class NRLauncherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("NR Launcher Monitor")
+        self.root.title("NR Monitor")
         self.root.geometry("400x260")
 
         self.settings = load_settings()
@@ -116,8 +116,8 @@ class NRLauncherApp:
         self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
         self.vs_label.pack(pady=5)
 
-        self.battery_label = tk.Label(root, text="Battery (Eureka): ---", font=("Segoe UI", 10))
-        self.battery_label.pack(pady=5)
+        self.battery_label = tk.Label(root, text="Battery: ---", font=("Segoe UI", 10), fg="blue")
+        self.battery_label.pack(pady=2)
 
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
