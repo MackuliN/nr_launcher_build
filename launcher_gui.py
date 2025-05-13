@@ -98,8 +98,8 @@ class NRLauncherApp:
         self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
         self.vs_label.pack(pady=5)
 
-        self.battery_label = tk.Label(root, text="Battery Level: ---", font=("Segoe UI", 11), fg="blue")
-        self.battery_label.pack(pady=5)
+        self.battery_label = tk.Label(root, text="Eureka Battery: ---", font=("Segoe UI", 10), fg="blue")
+        self.battery_label.pack(pady=2)
 
         self.button_frame = tk.Frame(root)
         self.button_frame.pack(pady=10)
@@ -115,15 +115,18 @@ class NRLauncherApp:
 
         self.running = True
         self.monitor_devices()
-        self.root.after(1500, self.update_nr_status)
+        self.root.after(3000, self.update_nr_status)
         self.root.after(1000, self.auto_launch)
-        self.root.after(5000, self.poll_battery)
+        self.root.after(10000, self.update_battery_status)
 
     def attach_menu(self):
         menu_bar = tk.Menu(self.root)
         function_menu = tk.Menu(menu_bar, tearoff=0)
         function_menu.add_command(label="Config Settings", command=self.open_config)
-        function_menu.add_command(label="Force Launch NR", command=self.force_launch)
+        function_menu.add_command(
+            label="Force Launch NR (skip checks)",
+            command=self.force_launch
+        )
         function_menu.add_command(
             label="App Info",
             command=lambda: messagebox.showinfo(
@@ -167,8 +170,12 @@ class NRLauncherApp:
     def auto_launch(self):
         if self.settings.get("auto_launch_disable", False):
             return
+
         if is_nr_running():
-            messagebox.showinfo("NR Already Running", "NimbleRecorder is already running.\nPlease close all instances before launching again.")
+            messagebox.showinfo(
+                "NR Already Running",
+                "NimbleRecorder is already running.\nPlease close all instances before launching again."
+            )
             return
 
         state = get_device_state()
@@ -177,7 +184,10 @@ class NRLauncherApp:
 
     def guard_before_launch(self):
         if is_nr_running():
-            messagebox.showinfo("NR Already Running", "NimbleRecorder is already running.\nPlease close all instances before launching again.")
+            messagebox.showinfo(
+                "NR Already Running",
+                "NimbleRecorder is already running.\nPlease close all instances before launching again."
+            )
             return
 
         state = get_device_state()
@@ -187,6 +197,19 @@ class NRLauncherApp:
 
         launch_batch_script_with_tracking(skip_check=False)
 
+    def force_launch(self):
+        response = messagebox.askokcancel(
+            "Force Launch NR",
+            "Are you sure you want to launch NimbleRecorder directly without device checks?"
+        )
+        if response:
+            user_home = os.environ.get("USERPROFILE", "")
+            nr_path = os.path.join(user_home, "S2", "NR", "startNimbleRecorderUnified.bat")
+            if os.path.exists(nr_path):
+                subprocess.Popen(['cmd', '/c', nr_path], shell=True)
+            else:
+                messagebox.showerror("Error", "Batch file not found.")
+
     def update_nr_status(self):
         if is_nr_running():
             self.status_label.config(text="NR Status: Ready", fg="green")
@@ -194,33 +217,25 @@ class NRLauncherApp:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
         self.root.after(1500, self.update_nr_status)
 
-    def force_launch(self):
-        response = messagebox.askokcancel("Force Launch", "Launch NR directly without device checks?")
-        if not response:
-            return
-        try:
-            home_path = os.environ.get("USERPROFILE")
-            if home_path:
-                bat_path = os.path.join(home_path, "S2", "NR", "startNimbleRecorderUnified.bat")
-                subprocess.Popen(["cmd.exe", "/c", bat_path], shell=True)
-            else:
-                raise EnvironmentError("USERPROFILE not found.")
-        except Exception as e:
-            messagebox.showerror("Launch Failed", str(e))
-
-    def poll_battery(self):
-        def check_battery():
+    def update_battery_status(self):
+        def poll():
             try:
-                output = subprocess.check_output(["adb", "-s", "device:eureka", "shell", "dumpsys", "battery"], text=True)
-                for line in output.splitlines():
+                result = subprocess.check_output(
+                    ["adb", "-s", "device:eureka", "shell", "dumpsys", "battery"],
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    startupinfo=subprocess.STARTUPINFO(),
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                ).decode()
+                for line in result.splitlines():
                     if "level:" in line:
-                        level = line.split(":")[1].strip()
-                        self.battery_label.config(text=f"Battery Level: {level}%")
-                        break
+                        level = line.strip().split(":")[1].strip()
+                        self.battery_label.config(text=f"Eureka Battery: {level}%", fg="blue")
+                        return
             except:
-                self.battery_label.config(text="Battery Level: ---")
-        threading.Thread(target=check_battery).start()
-        self.root.after(5000, self.poll_battery)
+                self.battery_label.config(text="Eureka Battery: ---", fg="blue")
+        threading.Thread(target=poll, daemon=True).start()
+        self.root.after(10000, self.update_battery_status)
 
 if __name__ == "__main__":
     elevate_if_needed()
