@@ -1,40 +1,23 @@
+import psutil
 import subprocess
-import threading
-import time
-
-status_flag = {"running": False}
 
 def is_nr_running():
-    """Check if NimbleRecorder is running based on 'Main loop running...' console log."""
-    return status_flag["running"]
-
-def monitor_console_for_ready_flag():
-    """Watches all cmd.exe consoles for 'Main loop running...' indicating NR is ready."""
-    while True:
-        try:
-            output = subprocess.check_output("tasklist /FI \"IMAGENAME eq cmd.exe\" /FO CSV", shell=True).decode()
-            if "cmd.exe" not in output:
-                status_flag["running"] = False
-                time.sleep(1)
+    """Dynamically checks if NimbleRecorder process is running and logs show 'Main loop running...'."""
+    for proc in psutil.process_iter(['name', 'pid', 'cmdline']):
+        if proc.info['name'] == 'cmd.exe':
+            try:
+                with proc.oneshot():
+                    pid = proc.info['pid']
+                    cmdline = ' '.join(proc.info.get('cmdline', []))
+                    if 'startNimbleRecorderUnified.bat' in cmdline.lower():
+                        result = subprocess.run(
+                            f'powershell Get-Content -Path (Get-Process -Id {pid}).Path -Tail 30',
+                            shell=True,
+                            capture_output=True,
+                            text=True
+                        )
+                        if "Main loop running..." in result.stdout:
+                            return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
-
-            consoles = output.strip().splitlines()[1:]
-            for line in consoles:
-                pid = line.split(",")[1].strip().strip('"')
-                try:
-                    out = subprocess.check_output(f"powershell Get-Content -Path (Get-Process -Id {pid}).Path -Tail 20", shell=True)
-                    if b"Main loop running..." in out:
-                        status_flag["running"] = True
-                        break
-                except:
-                    continue
-            else:
-                status_flag["running"] = False
-
-        except:
-            status_flag["running"] = False
-
-        time.sleep(2)
-
-# Start monitoring in background when this module is imported
-threading.Thread(target=monitor_console_for_ready_flag, daemon=True).start()
+    return False
