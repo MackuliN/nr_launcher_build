@@ -19,7 +19,8 @@ SETTINGS_FILE = "settings.json"
 DEFAULT_SETTINGS = {
     "scan_interval": 5,
     "auto_launch_disable": False,
-    "edge_autolaunch_disable": False
+    "edge_autolaunch_disable": False,
+    "launch_all_server_disable": False
 }
 
 def load_settings():
@@ -89,13 +90,18 @@ class ConfigDialog(tk.Toplevel):
         self.edge_launch_check = tk.Checkbutton(self, text="Disable Edge Auto-Launch", variable=self.edge_launch_var)
         self.edge_launch_check.grid(row=2, column=0, columnspan=2, padx=10, pady=5)
 
+        self.server_launch_var = tk.BooleanVar(value=settings.get("launch_all_server_disable", False))
+        self.server_launch_check = tk.Checkbutton(self, text="Disable Auto Launch of Server Scripts", variable=self.server_launch_var)
+        self.server_launch_check.grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+
         save_btn = ttk.Button(self, text="Save", command=self.save)
-        save_btn.grid(row=3, column=0, columnspan=2, pady=10)
+        save_btn.grid(row=4, column=0, columnspan=2, pady=10)
 
     def save(self):
         self.settings["scan_interval"] = self.interval_var.get()
         self.settings["auto_launch_disable"] = self.auto_launch_var.get()
         self.settings["edge_autolaunch_disable"] = self.edge_launch_var.get()
+        self.settings["launch_all_server_disable"] = self.server_launch_var.get()
         save_settings(self.settings)
         self.on_save()
         self.destroy()
@@ -199,6 +205,17 @@ class NRLauncherApp:
         if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
             launch_batch_script_with_tracking(skip_check=False)
 
+    def launch_all_server(self):
+        script = (
+            "set PYTHONPATH=%PYTHONPATH%;C:\\Users\\rift\\schroedinger_control\\EFReCalSolution && "
+            "echo %PYTHONPATH% && "
+            "cd C:\\Users\\rift\\S2\\ && "
+            "start C:\\python38\\python.exe .\\s2_chassis_server.py -o .\\ && "
+            "timeout /t 2 && "
+            "start C:\\tools\\fb-python310\\python.exe .\\launch_s2_server.par -o .\\"
+        )
+        subprocess.Popen(script, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+
     def guard_before_launch(self):
         if is_nr_running():
             messagebox.showinfo("NR Already Running", "NimbleRecorder is already running.\nPlease close all instances before launching again.")
@@ -215,6 +232,8 @@ class NRLauncherApp:
             if not self.settings.get("edge_autolaunch_disable", False) and not self.edge_started:
                 subprocess.Popen(["cmd", "/c", "start", "msedge"], shell=True)
                 self.edge_started = True
+                if not self.settings.get("launch_all_server_disable", False):
+                    self.launch_all_server()
         else:
             self.status_label.config(text="NR Status: Not Ready", fg="red")
             self.edge_started = False
