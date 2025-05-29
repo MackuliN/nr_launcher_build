@@ -20,7 +20,9 @@ DEFAULT_SETTINGS = {
     "scan_interval": 5,
     "auto_launch_disable": False,
     "edge_autolaunch_disable": False,
-    "launch_all_server_disable": False
+    "launch_all_server_disable": False,
+    "hmd_prefix": "VX",
+    "scylla_prefix": "VS"
 }
 
 def load_settings():
@@ -94,14 +96,26 @@ class ConfigDialog(tk.Toplevel):
         self.server_launch_check = tk.Checkbutton(self, text="Disable Auto Launch of Server Scripts", variable=self.server_launch_var)
         self.server_launch_check.grid(row=3, column=0, columnspan=2, padx=10, pady=5)
 
+        tk.Label(self, text="HMD Serial Prefix:").grid(row=4, column=0, padx=10, pady=10, sticky="w")
+        self.hmd_var = tk.StringVar(value=settings.get("hmd_prefix", "VX"))
+        self.hmd_entry = tk.Entry(self, textvariable=self.hmd_var)
+        self.hmd_entry.grid(row=4, column=1, padx=10, pady=10)
+
+        tk.Label(self, text="Scylla Serial Prefix:").grid(row=5, column=0, padx=10, pady=10, sticky="w")
+        self.scylla_var = tk.StringVar(value=settings.get("scylla_prefix", "VS"))
+        self.scylla_entry = tk.Entry(self, textvariable=self.scylla_var)
+        self.scylla_entry.grid(row=5, column=1, padx=10, pady=10)
+
         save_btn = ttk.Button(self, text="Save", command=self.save)
-        save_btn.grid(row=4, column=0, columnspan=2, pady=10)
+        save_btn.grid(row=6, column=0, columnspan=2, pady=10)
 
     def save(self):
         self.settings["scan_interval"] = self.interval_var.get()
         self.settings["auto_launch_disable"] = self.auto_launch_var.get()
         self.settings["edge_autolaunch_disable"] = self.edge_launch_var.get()
         self.settings["launch_all_server_disable"] = self.server_launch_var.get()
+        self.settings["hmd_prefix"] = self.hmd_var.get()
+        self.settings["scylla_prefix"] = self.scylla_var.get()
         save_settings(self.settings)
         self.on_save()
         self.destroy()
@@ -116,11 +130,11 @@ class NRLauncherApp:
 
         self.attach_menu()
 
-        self.vx_label = tk.Label(root, text="VX Device: ---", font=("Segoe UI", 12), fg="black")
-        self.vx_label.pack(pady=5)
+        self.hmd_label = tk.Label(root, text="HMD Device: ---", font=("Segoe UI", 12), fg="black")
+        self.hmd_label.pack(pady=5)
 
-        self.vs_label = tk.Label(root, text="VS Device: ---", font=("Segoe UI", 12), fg="black")
-        self.vs_label.pack(pady=5)
+        self.scylla_label = tk.Label(root, text="Scylla Device: ---", font=("Segoe UI", 12), fg="black")
+        self.scylla_label.pack(pady=5)
 
         self.battery_label = tk.Label(root, text="Battery (Eureka): ---", font=("Segoe UI", 10))
         self.battery_label.pack(pady=5)
@@ -171,20 +185,20 @@ class NRLauncherApp:
             messagebox.showerror("File Not Found", f"Could not locate:\n{bat_path}")
 
     def manual_scan(self):
-        state = get_device_state()
+        state = get_device_state(self.settings)
         self.update_labels(state)
 
     def update_labels(self, state):
-        vx_list = state["VX"]["devices"]
-        vs_list = state["VS"]["devices"]
+        hmd_list = state["HMD"]["devices"]
+        scylla_list = state["Scylla"]["devices"]
 
-        self.vx_label.config(text=f"VX Device: {vx_list[0] if vx_list else '---'}", fg=state["VX"]["color"])
-        self.vs_label.config(text=f"VS Device: {vs_list[0] if vs_list else '---'}", fg=state["VS"]["color"])
+        self.hmd_label.config(text=f"HMD Device: {hmd_list[0] if hmd_list else '---'}", fg=state["HMD"]["color"])
+        self.scylla_label.config(text=f"Scylla Device: {scylla_list[0] if scylla_list else '---'}", fg=state["Scylla"]["color"])
 
     def monitor_devices(self):
         if not self.running:
             return
-        threading.Thread(target=lambda: self.update_labels(get_device_state()), daemon=True).start()
+        threading.Thread(target=lambda: self.update_labels(get_device_state(self.settings)), daemon=True).start()
         interval = self.settings.get("scan_interval", 5)
         self.root.after(interval * 1000, self.monitor_devices)
 
@@ -201,8 +215,8 @@ class NRLauncherApp:
             return
         if is_nr_running():
             return
-        state = get_device_state()
-        if state["VX"]["color"] == "green" and state["VS"]["color"] == "green":
+        state = get_device_state(self.settings)
+        if state["HMD"]["color"] == "green" and state["Scylla"]["color"] == "green":
             launch_batch_script_with_tracking(skip_check=False)
 
     def launch_all_server(self):
@@ -220,8 +234,8 @@ class NRLauncherApp:
         if is_nr_running():
             messagebox.showinfo("NR Already Running", "NimbleRecorder is already running.\nPlease close all instances before launching again.")
             return
-        state = get_device_state()
-        if not (state["VX"]["devices"] and state["VS"]["devices"]):
+        state = get_device_state(self.settings)
+        if not (state["HMD"]["devices"] and state["Scylla"]["devices"]):
             messagebox.showerror("Device Check Failed", "Required devices not connected. Cannot launch NR.")
             return
         launch_batch_script_with_tracking(skip_check=False)
