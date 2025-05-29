@@ -17,7 +17,7 @@ echo style = CInt(WScript.Arguments.Item(2)) >> "%POPUP_VBS%"
 echo result = MsgBox(msg, style, title) >> "%POPUP_VBS%"
 echo If result = 2 Then WScript.Quit(1) >> "%POPUP_VBS%"
 if not exist "%POPUP_VBS%" (
-    echo Failed to create popup.vbs at %%POPUP_VBS%%
+    echo Failed to create popup.vbs at %POPUP_VBS%
     pause
     exit /b
 )
@@ -100,29 +100,31 @@ def scan_devices():
     except subprocess.CalledProcessError:
         return []
 
-def get_device_summary():
+def get_device_summary(settings):
     devices = scan_devices()
-    vx = [d for d in devices if d.startswith("VX")]
-    vs = [d for d in devices if d.startswith("VS")]
+    hmd_prefix = settings.get('hmd_prefix', 'VX')
+    scylla_prefix = settings.get('scylla_prefix', 'VS')
+    hmd = [d for d in devices if d.startswith(hmd_prefix)]
+    scylla = [d for d in devices if d.startswith(scylla_prefix)]
     return {
-        "VX": vx,
-        "VS": vs,
-        "All": devices
+        'HMD': hmd,
+        'Scylla': scylla,
+        'All': devices
     }
 
-def get_device_state():
-    summary = get_device_summary()
+def get_device_state(settings):
+    summary = get_device_summary(settings)
     state = {
-        "VX": {"devices": summary["VX"], "color": "black"},
-        "VS": {"devices": summary["VS"], "color": "black"}
+        'HMD': {'devices': summary['HMD'], 'color': 'black'},
+        'Scylla': {'devices': summary['Scylla'], 'color': 'black'}
     }
-    if summary["VX"] and summary["VS"]:
-        state["VX"]["color"] = "green"
-        state["VS"]["color"] = "green"
-    elif not summary["VX"]:
-        state["VX"]["color"] = "red"
-    elif not summary["VS"]:
-        state["VS"]["color"] = "red"
+    if summary['HMD'] and summary['Scylla']:
+        state['HMD']['color'] = 'green'
+        state['Scylla']['color'] = 'green'
+    elif not summary['HMD']:
+        state['HMD']['color'] = 'red'
+    elif not summary['Scylla']:
+        state['Scylla']['color'] = 'red'
     return state
 
 def launch_batch_script_with_tracking(skip_check=False):
@@ -131,9 +133,7 @@ def launch_batch_script_with_tracking(skip_check=False):
         batch_path = f.name
 
     if skip_check:
-        BATCH_SKIP_WRAPPER = f"""@echo off
-call "{batch_path}"
-"""
+        BATCH_SKIP_WRAPPER = f"""@echo off\ncall "{batch_path}"\n"""
         with tempfile.NamedTemporaryFile(delete=False, suffix=".bat", mode="w", encoding="utf-8") as wrapper:
             wrapper.write(BATCH_SKIP_WRAPPER)
             batch_path = wrapper.name
